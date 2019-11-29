@@ -40,6 +40,7 @@ app.get('/stock/v1/current', function(req, res){
             let obj = JSON.parse(result);
             var back = {
                 'symbol': obj.data[0].symbol,
+                'price': obj.data[0].price,
                 'day_change': obj.data[0].day_change,
                 'change_pct': obj.data[0].change_pct
             }
