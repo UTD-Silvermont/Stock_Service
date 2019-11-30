@@ -2,6 +2,98 @@ var express = require('express');
 var app = express();
 var qs = require('querystring');
 var https = require('https');
+var http = require('http');
+
+var enableLog = 0;
+
+function getCDT() {
+    var timelagging = 6; // 5 or 6
+    var utc = new Date();
+    var cdt = new Date(utc.getTime()-((1 * 60 * 60 * 1000) * timelagging));
+    return cdt;
+}
+
+function formatDate(date) {
+    var d = new Date(date),
+        month = '' + (d.getMonth() + 1),
+        day = '' + d.getDate(),
+        year = d.getFullYear();
+
+    if (month.length < 2) 
+        month = '0' + month;
+    if (day.length < 2) 
+        day = '0' + day;
+
+    return [year, month, day].join('-');
+}
+
+function generateDate(date) {
+    dateTran = date.replace(/-/g,"/");
+    dateObj = new Date(dateTran);
+    return dateObj;
+}
+
+function getFirstInMonth()
+{
+    now = getCDT();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+    if(month < 10)
+    {
+        monthStr = '0' + String(month);
+    }
+    else
+    {
+        monthStr = month;
+    }
+    dateStr = [year, monthStr, '01'].join('-');
+    return dateStr;
+}
+
+function getFirstInYear()
+{
+    now = getCDT();
+    year = now.getFullYear();
+    dateStr = [year, '01', '01'].join('-');
+    return dateStr;
+}
+
+function getPast5Years()
+{
+    now = getCDT();
+    year = now.getFullYear() - 4;
+    month = now.getMonth() + 1;
+    date = now.getDate();
+    if(month < 10)
+    {
+        monthStr = '0' + String(month);
+    }
+    else
+    {
+        monthStr = month;
+    }
+    if(date < 10)
+    {
+        dateStr = '0' + String(date);
+    }
+    else
+    {
+        dateStr = date;
+    }
+    dateStr = [year, monthStr, dateStr].join('-');
+    return dateStr;
+}
+
+function getCDTStr()
+{
+    date = getCDT();
+    var y = date.getFullYear();  
+    var m = date.getMonth() + 1;  
+    m = m < 10 ? ('0' + m) : m;  
+    var d = date.getDate();  
+    d = d < 10 ? ('0' + d) : d;  
+    return y + '-' + m + '-' + d; 
+}
 
 /**
  * Description: To get the current price and the change of a certain stock
@@ -20,6 +112,7 @@ app.get('/stock/v1/current', function(req, res){
     };
     var content = qs.stringify(data);
     console.log('---------new request: /stock/v1/current----------');
+    console.log('time: ', getCDT());
     console.log('symbol: ', req.query.symbol);
     var options = {
         hostname: 'api.worldtradingdata.com',
@@ -35,17 +128,21 @@ app.get('/stock/v1/current', function(req, res){
             result += data;
         })
         request.on('end', function(){
-            console.log('----------result------------');
-            console.log(result);
+            
             let obj = JSON.parse(result);
             var back = {
                 'symbol': obj.data[0].symbol,
                 'price': obj.data[0].price,
                 'day_change': obj.data[0].day_change,
-                'change_pct': obj.data[0].change_pct
+                'change_pct': obj.data[0].change_pctx
             }
-            console.log('----------response------------');
-            console.log(JSON.stringify(back));
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }          
             res.json(back);
         })
     });
@@ -86,6 +183,7 @@ app.get('/stock/v1/intraday', function(req, res){
     };
     var content = qs.stringify(data);
     console.log('---------new request: /stock/v1/intraday----------');
+    console.log('time: ', getCDT());
     console.log('symbol: ', req.query.symbol, '| interval: ', req.query.interval);
     var options = {
         hostname: 'intraday.worldtradingdata.com',
@@ -101,15 +199,18 @@ app.get('/stock/v1/intraday', function(req, res){
             result += data;
         })
         request.on('end', function(){
-            console.log('----------result------------');
-            console.log(result);
             let obj = JSON.parse(result);
             var back = {
                 'symbol': obj.symbol,
-                'intraday': obj.intraday
+                'history': obj.intraday
             }
-            console.log('----------response------------');
-            console.log(JSON.stringify(back));
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
             res.json(back);
         })
     });
@@ -172,6 +273,7 @@ app.get('/stock/v1/period', function(req, res){
     };
     var content = qs.stringify(data);
     console.log('---------new request: /stock/v1/period----------');
+    console.log('time: ', getCDT());
     console.log('symbol: ', req.query.symbol, '| date_from: ', req.query.date_from, '| date_to: ', req.query.date_to);
     var options = {
         hostname: 'api.worldtradingdata.com',
@@ -187,15 +289,348 @@ app.get('/stock/v1/period', function(req, res){
             result += data;
         })
         request.on('end', function(){
-            console.log('----------result------------');
-            console.log(result);
             let obj = JSON.parse(result);
             var back = {
                 'symbol': obj.name,
                 'history': obj.history
             }
-            console.log('----------response------------');
-            console.log(JSON.stringify(back));
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
+            res.json(back);
+        })
+    });
+})
+
+/**
+ * Description: To get the stock price of current week
+ */
+app.get('/stock/v1/current-week', function(req, res){
+    // check parameters
+    if(req.query.symbol == null || req.query.interval == null)
+    {
+        let str = ' Missing';
+        if(req.query.symbol == null)
+        {
+            str += " 'symbol'";
+        }
+        if(req.query.interval == null)
+        {
+            str += " 'interval'";
+        }
+        console.log("Parameter Error!" + str);
+        res.send("Parameter Error!" + str);
+        return;
+    }
+    else if(req.query.interval != '1' && req.query.interval != '2' && req.query.interval != '5'
+    && req.query.interval != '60')
+    {
+        console.log("Parameter Error! 'interval' should be in (1, 2, 5, 60)");
+        res.send("Parameter Error! 'interval' should be in (1, 2, 5, 60)");
+        return;
+    }
+    var now = getCDT();
+    var day = now.getDay();
+    var data = {
+        'symbol': req.query.symbol,
+        'interval': req.query.interval,
+        'sort': 'asc',
+        'range': day,
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    console.log('---------new request: /stock/v1/current-week----------');
+    console.log('time: ', getCDT());
+    console.log('symbol: ', req.query.symbol, '| interval: ', req.query.interval);
+    var options = {
+        hostname: 'intraday.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/intraday?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = {
+                'symbol': obj.symbol
+            }
+            for(var t in obj.intraday)
+            {
+                time = generateDate(t);
+                now = getCDT();
+                interval = now.getDay();
+                if(interval == 0)interval = 7;
+                if(now.getDate() - time.getDate() >= interval)
+                {
+                    delete obj.intraday[t];
+                }
+            }
+            back.history = obj.intraday;
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
+            res.json(back);
+        })
+    });
+})
+
+/**
+ * Description: To get the stock price of past week
+ */
+app.get('/stock/v1/past-week', function(req, res){
+    // check parameters
+    if(req.query.symbol == null || req.query.interval == null)
+    {
+        let str = ' Missing';
+        if(req.query.symbol == null)
+        {
+            str += " 'symbol'";
+        }
+        if(req.query.interval == null)
+        {
+            str += " 'interval'";
+        }
+        console.log("Parameter Error!" + str);
+        res.send("Parameter Error!" + str);
+        return;
+    }
+    else if(req.query.interval != '1' && req.query.interval != '2' && req.query.interval != '5'
+    && req.query.interval != '60')
+    {
+        console.log("Parameter Error! 'interval' should be in (1, 2, 5, 60)");
+        res.send("Parameter Error! 'interval' should be in (1, 2, 5, 60)");
+        return;
+    }
+    var now = getCDT();
+    var day = now.getDay();
+    var data = {
+        'symbol': req.query.symbol,
+        'interval': req.query.interval,
+        'sort': 'asc',
+        'range': day + 5,
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    console.log('---------new request: /stock/v1/past-week----------');
+    console.log('time: ', getCDT());
+    console.log('symbol: ', req.query.symbol, '| interval: ', req.query.interval);
+    var options = {
+        hostname: 'intraday.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/intraday?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = {
+                'symbol': obj.symbol
+            }
+
+            for (var t in obj.intraday)
+            {
+                time = generateDate(t);
+                now = getCDT();
+                interval = now.getDay();
+                if(interval == 0)interval = 7;
+                if(now.getDate() - time.getDate() >= interval + 7)
+                {
+                    delete obj.intraday[t];
+                    continue;
+                }
+                if(now.getDate() - time.getDate() < interval)
+                {
+                    delete obj.intraday[t];
+                }
+            }
+            back.history = obj.intraday;
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
+            res.json(back);
+        })
+    });
+})
+
+
+/**
+ * Description: To get the month-to-date stock price
+ */
+app.get('/stock/v1/month-to-date', function(req, res){
+    // check parameters
+    if(req.query.symbol == null)
+    {
+        console.log("Parameter Error! Missing 'symbol'!");
+        res.send("Parameter Error! Missing 'symbol'!");
+        return;
+    }
+    var data = {
+        'symbol': req.query.symbol,
+        'date_from': getFirstInMonth(),
+        'date_to': getCDTStr(),
+        'sort': 'asc',
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    console.log('---------new request: /stock/v1/past-week----------');
+    console.log('time: ', getCDT());
+    console.log('symbol: ', req.query.symbol);
+    var options = {
+        hostname: 'api.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/history?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = {
+                'symbol': obj.name,
+                'history': obj.history
+            }
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
+            res.json(back);
+        })
+    });
+})
+
+/**
+ * Description: To get the year-to-date stock price
+ */
+app.get('/stock/v1/year-to-date', function(req, res){
+    // check parameters
+    if(req.query.symbol == null)
+    {
+        console.log("Parameter Error! Missing 'symbol'!");
+        res.send("Parameter Error! Missing 'symbol'!");
+        return;
+    }
+    var data = {
+        'symbol': req.query.symbol,
+        'date_from': getFirstInYear(),
+        'date_to': getCDTStr(),
+        'sort': 'asc',
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    console.log('---------new request: /stock/v1/past-week----------');
+    console.log('time: ', getCDT());
+    console.log('symbol: ', req.query.symbol);
+    var options = {
+        hostname: 'api.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/history?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = {
+                'symbol': obj.name,
+                'history': obj.history
+            }
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
+            res.json(back);
+        })
+    });
+})
+
+/**
+ * Description: To get the stock price of past 5 years
+ */
+app.get('/stock/v1/past-5-years', function(req, res){
+    // check parameters
+    if(req.query.symbol == null)
+    {
+        console.log("Parameter Error! Missing 'symbol'!");
+        res.send("Parameter Error! Missing 'symbol'!");
+        return;
+    }
+    var data = {
+        'symbol': req.query.symbol,
+        'date_from': getPast5Years(),
+        'date_to': getCDTStr(),
+        'sort': 'asc',
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    console.log('---------new request: /stock/v1/past-week----------');
+    console.log('time: ', getCDT());
+    console.log('symbol: ', req.query.symbol);
+    var options = {
+        hostname: 'api.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/history?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = {
+                'symbol': obj.symbol,
+                'history': obj.history
+            }
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }    
             res.json(back);
         })
     });
