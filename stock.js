@@ -95,6 +95,53 @@ function getCDTStr()
     return y + '-' + m + '-' + d; 
 }
 
+function addNewest(symbol, res, obj)
+{
+    var data = {
+        'symbol': symbol,
+        'sort_order': 'asc',
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var content = qs.stringify(data);
+    var options = {
+        hostname: 'api.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/stock?' + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(content);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj2 = JSON.parse(result);
+            var temp = {
+                'open': obj2.data[0].price_open,
+                'close': obj2.data[0].price,
+                'high': obj2.data[0].day_high,
+                'low': obj2.data[0].day_low,
+                'volume': obj2.data[0].volume
+            }
+            obj.history[getCDTStr()] = temp;
+            var back = {
+                'symbol': obj.name,
+                'history': obj.history
+            }
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                console.log(result2);
+                console.log('----------response------------');
+                console.log(JSON.stringify(back));
+            }          
+            res.json(back);
+        })
+    })
+}
+
 /**
  * Description: To get the current price and the change of a certain stock
  */
@@ -514,18 +561,12 @@ app.get('/stock/v1/month-to-date', function(req, res){
         })
         request.on('end', function(){
             let obj = JSON.parse(result);
-            var back = {
-                'symbol': obj.name,
-                'history': obj.history
-            }
             if(enableLog == 1)
             {
                 console.log('----------result------------');
                 console.log(result);
-                console.log('----------response------------');
-                console.log(JSON.stringify(back));
-            }    
-            res.json(back);
+            }   
+            addNewest(req.query.symbol, res, obj);
         })
     });
 })
@@ -567,18 +608,12 @@ app.get('/stock/v1/year-to-date', function(req, res){
         })
         request.on('end', function(){
             let obj = JSON.parse(result);
-            var back = {
-                'symbol': obj.name,
-                'history': obj.history
-            }
             if(enableLog == 1)
             {
                 console.log('----------result------------');
                 console.log(result);
-                console.log('----------response------------');
-                console.log(JSON.stringify(back));
             }    
-            res.json(back);
+            addNewest(req.query.symbol, res, obj);
         })
     });
 })
@@ -620,18 +655,12 @@ app.get('/stock/v1/past-5-years', function(req, res){
         })
         request.on('end', function(){
             let obj = JSON.parse(result);
-            var back = {
-                'symbol': obj.symbol,
-                'history': obj.history
-            }
             if(enableLog == 1)
             {
                 console.log('----------result------------');
                 console.log(result);
-                console.log('----------response------------');
-                console.log(JSON.stringify(back));
             }    
-            res.json(back);
+            addNewest(req.query.symbol, res, obj);
         })
     });
 })
