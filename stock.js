@@ -3,8 +3,12 @@ var app = express();
 var qs = require('querystring');
 var https = require('https');
 var http = require('http');
+var cors = require('cors');
 
+app.use(cors());
 var enableLog = 0;
+
+
 
 function getCDT() {
     var timelagging = 6; // 5 or 6
@@ -382,6 +386,7 @@ app.get('/stock/v1/current-week', function(req, res){
     }
     var now = getCDT();
     var day = now.getDay();
+    if(day == 0)day = 7;
     var data = {
         'symbol': req.query.symbol,
         'interval': req.query.interval,
@@ -417,7 +422,13 @@ app.get('/stock/v1/current-week', function(req, res){
                 now = getCDT();
                 interval = now.getDay();
                 if(interval == 0)interval = 7;
-                if(now.getDate() - time.getDate() >= interval)
+                diff = now.getDate() - time.getDate();
+                if(diff < 0)
+                {
+                    maxDate = new Date(time.getFullYear(), time.getMonth()+1, 0).getDate();
+                    diff = maxDate - time.getDate() + now.getDate();
+                }
+                if(diff >= interval)
                 {
                     delete obj.intraday[t];
                 }
@@ -464,6 +475,7 @@ app.get('/stock/v1/past-week', function(req, res){
     }
     var now = getCDT();
     var day = now.getDay();
+    if(day == 0)day = 7;
     var data = {
         'symbol': req.query.symbol,
         'interval': req.query.interval,
@@ -500,12 +512,18 @@ app.get('/stock/v1/past-week', function(req, res){
                 now = getCDT();
                 interval = now.getDay();
                 if(interval == 0)interval = 7;
-                if(now.getDate() - time.getDate() >= interval + 7)
+                diff = now.getDate() - time.getDate();
+                if(diff < 0)
+                {
+                    maxDate = new Date(time.getFullYear(), time.getMonth()+1, 0).getDate();
+                    diff = maxDate - time.getDate() + now.getDate();
+                }
+                if(diff >= interval + 7)
                 {
                     delete obj.intraday[t];
                     continue;
                 }
-                if(now.getDate() - time.getDate() < interval)
+                if(diff < interval)
                 {
                     delete obj.intraday[t];
                 }
