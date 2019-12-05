@@ -150,7 +150,7 @@ function addNewest(symbol, res, obj)
     })
 }
 
-app.post('/stock/v1/current', function(req, res){
+app.post('/stock/v1/current-list', function(req, res){
     var jsonStr;
     if(req.body.data)
     {
