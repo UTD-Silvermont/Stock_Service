@@ -8,7 +8,11 @@ var cors = require('cors');
 app.use(cors());
 var enableLog = 0;
 
-
+var bodyParser = require('body-parser');
+app.use(bodyParser.json({limit: '1mb'}));  
+app.use(bodyParser.urlencoded({           
+  extended: true
+}));
 
 function getCDT() {
     var timelagging = 6; // 5 or 6
@@ -145,6 +149,86 @@ function addNewest(symbol, res, obj)
         })
     })
 }
+
+app.post('/stock/v1/current', function(req, res){
+    var jsonStr;
+    if(req.body.data)
+    {
+        console.log(req.body.data);
+        jsonStr = req.body.data;
+    }
+    else
+    {
+        res.send("Please set Content-Type=application/json");
+        return;
+    }
+    if(jsonStr.length == 0)
+    {
+        console.log("Parameter Error! Missing 'symbol'!");
+        res.send("Parameter Error! Missing 'symbol'!");
+        return;
+    }
+    var data = {
+        'sort_order': 'asc',
+        'api_token': 'elXrkfeeorHtaT6TYpDTBi84mT1B6b3abFVOBLQnsXVtkKseN5yyoPTmUjzd'
+    };
+    var symbol = "symbol=";
+    for(var t in jsonStr)
+    {
+        if(t == 0)
+        {
+            symbol = symbol + (jsonStr[t].symbol);
+        }
+        else
+        {
+            symbol = symbol + "," + (jsonStr[t].symbol);
+        }
+       
+    }
+    console.log(symbol);
+    var content = qs.stringify(data);
+    console.log('---------new post request: /stock/v1/current----------');
+    console.log('time: ', getCDT());
+    //console.log('symbol: ', data.symbol);
+    var options = {
+        hostname: 'api.worldtradingdata.com',
+        port: 443,
+        path: '/api/v1/stock?' + symbol + "&" + content,
+        method: 'GET'
+    };
+    let result = '';
+    https.get(options, function(request, response){
+        console.log('send request');
+        console.log(options.path);
+        request.on('data', function(data){
+            result += data;
+        })
+        request.on('end', function(){
+            let obj = JSON.parse(result);
+            var back = [];
+            for(var t in obj.data)
+            {
+                var temp = {};
+                temp.key = t;
+                temp.symbol = obj.data[t].symbol;
+                temp.price = obj.data[t].price;
+                temp.day_change = obj.data[t].day_change;
+                temp.change_pct = obj.data[t].change_pct;
+                temp.name = obj.data[t].name;
+                back.push(temp);
+            }
+            var backJSON = {'data': back};
+            if(enableLog == 1)
+            {
+                console.log('----------result------------');
+                //console.log(result);
+                console.log('----------response------------');
+                //console.log(JSON.stringify(back));
+            }          
+            res.json(backJSON);
+        })
+    });
+})
 
 /**
  * Description: To get the current price and the change of a certain stock
