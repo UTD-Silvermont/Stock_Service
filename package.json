@@ -1,8 +1,11 @@
 {
-  "name": "express",
+  "name": "stock_service",
   "version": "1.0.0",
-  "description": "",
-  "main": "express_demo.js",
+  "main": "stock.js",
+  "engines": {
+    "node": ">= 12.13.0",
+    "npm": ">= 6.12.0"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.17.1",
@@ -16,5 +19,14 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UTD-Silvermont/Stock_Service.git"
+  },
+  "bugs": {
+    "url": "https://github.com/UTD-Silvermont/Stock_Service/issues"
+  },
+  "homepage": "https://github.com/UTD-Silvermont/Stock_Service#readme",
+  "description": ""
 }
